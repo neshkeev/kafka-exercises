@@ -1,0 +1,13 @@
+image: gitpod/workspace-java-17
+
+vscode:
+  extensions:
+    # Docker Containers
+    - ms-azuretools.vscode-docker
+    # Java
+    - vscjava.vscode-java-pack
+    - redhat.java
+    - vscjava.vscode-java-debug
+    - vscjava.vscode-java-dependency
+    - vscjava.vscode-java-test
+    - vscjava.vscode-maven
