@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+function check_port() {
+    local PORT=${1}
+
+    [ -z "$PORT" ] && echo "No PORT value is passed" >&2 && return 1
+
+    local PORT_TCP=$(printf "00000000:%04x" "$PORT")
+    local PORT_TCP_V6=$(printf "00000000000000000000000000000000:%04x" "$PORT")
+
+    grep -i -q "$PORT_TCP" /proc/net/tcp || grep -i -q "$PORT_TCP_V6" /proc/net/tcp6 || {
+        echo "No open port ${PORT} found" >&2
+        return 1
+    }
+}
+
+ok=0
+for port in ${*}; do
+    check_port "$port"
+    ok=$((ok + $?))
+done
+
+[ "$ok" == "0" ]

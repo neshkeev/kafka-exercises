@@ -1,0 +1,21 @@
+FROM confluentinc/cp-kafka:7.4.0
+
+USER root
+
+RUN dnf -y install openssh-server
+
+ADD bin/kafka_entrypoint /bin/entrypoint
+RUN chmod 777 /bin/entrypoint
+
+RUN ssh-keygen -A && \
+    chown appuser:appuser /etc/ssh/ssh_host_rsa_key && \
+    chown appuser:appuser /etc/ssh/ssh_host_ecdsa_key && \
+    chown appuser:appuser /etc/ssh/ssh_host_ed25519_key && \
+    chown appuser:appuser /etc/ssh/sshd_config && \
+    echo "AllowUsers appuser" >> /etc/ssh/sshd_config && \
+    echo "Port 2222" >> /etc/ssh/sshd_config && \
+    true
+
+USER appuser
+
+CMD [ "/bin/entrypoint" ]

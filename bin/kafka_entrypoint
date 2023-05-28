@@ -1,0 +1,5 @@
+#! /usr/bin/env bash
+
+/usr/sbin/sshd -f /etc/ssh/sshd_config -p 2222
+
+/etc/confluent/docker/run

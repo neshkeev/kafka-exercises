@@ -1,0 +1,107 @@
+version: "3.8"
+networks:
+  kafka_network:
+services:
+  manager:
+    image: neshkeev/bash-notebook
+    hostname: manager
+    restart: on-failure
+    container_name: manager
+    command: bash /usr/local/bin/entrypoint
+    networks:
+      - kafka_network
+    healthcheck:
+      test: bash /bin/check-ports 8888
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    ports:
+      - "8888:8888"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ./ssh:/home/jovyan/.ssh
+      - ./bin/manager-entrypoint:/usr/local/bin/entrypoint
+      - ./bin/check-ports:/bin/check-ports
+      - ./bin/manager.bashrc:/home/jovyan/.bashrc
+      - ./src:/home/jovyan/work
+    environment:
+      - KAFKA_BROKERS=kafka
+      - ZOOKEEPER_HOST=zookeeper
+      - NOTEBOOK_ARGS=--NotebookApp.token='' --NotebookApp.password=''
+      - RESTARTABLE=yes
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    restart: on-failure
+    container_name: zookeeper
+    networks:
+      - kafka_network
+    healthcheck:
+      test: /bin/sh /bin/check-ports 2181
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+    ports:
+      - "2181:2181"
+    volumes:
+      - ./bin/check-ports:/bin/check-ports
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  kafka:
+    build:
+      context: .
+      dockerfile: local/Dockerfile_kafka
+    hostname: kafka
+    restart: on-failure
+    container_name: kafka
+    networks:
+      - kafka_network
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: /bin/sh /bin/check-ports 9092 2222
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+        restart: true
+    volumes:
+      - ./ssh/id_rsa.pub:/home/appuser/.ssh/authorized_keys:600
+      - ./bin/check-ports:/bin/check-ports
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_DELETE_TOPIC_ENABLE: true
+  redpanda:
+    image: docker.redpanda.com/redpandadata/console:v2.2.4
+    hostname: redpanda
+    restart: on-failure
+    container_name: redpanda
+    networks:
+      - kafka_network
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: /bin/sh /bin/check-ports 8080
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    volumes:
+      - ./bin/check-ports:/bin/check-ports
+    environment:
+      - KAFKA_BROKERS=kafka:9092
