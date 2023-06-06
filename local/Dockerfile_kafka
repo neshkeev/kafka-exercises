@@ -4,10 +4,13 @@ USER root
 
 RUN dnf -y install openssh-server
 
-ADD bin/kafka_entrypoint /bin/entrypoint
-RUN chmod 777 /bin/entrypoint
+ADD bin/kafka-entrypoint /bin/entrypoint
+ADD ssh/id_rsa.pub /home/appuser/.ssh/authorized_keys
 
 RUN ssh-keygen -A && \
+    chmod 777 /bin/entrypoint && \
+    chmod 600 /home/appuser/.ssh/authorized_keys && \
+    chown appuser:appuser /home/appuser/.ssh/authorized_keys && \
     chown appuser:appuser /etc/ssh/ssh_host_rsa_key && \
     chown appuser:appuser /etc/ssh/ssh_host_ecdsa_key && \
     chown appuser:appuser /etc/ssh/ssh_host_ed25519_key && \

@@ -2,6 +2,7 @@
 
 function setup_ssh() {
     ssh-keyscan -p 2222 ${KAFKA_BROKERS} > ~/.ssh/known_hosts
+    printf 'Host *\n\tSetEnv LC_ALL=C' > ~/.ssh/config
 }
 
 setup_ssh && /usr/local/bin/start-notebook.sh
