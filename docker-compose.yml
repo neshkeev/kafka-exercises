@@ -26,7 +26,7 @@ services:
       - ./bin/manager-entrypoint:/usr/local/bin/entrypoint:777
       - ./bin/check-ports:/bin/check-ports:777
       - ./bin/manager.bashrc:/home/jovyan/.bashrc
-      - ./src:/home/jovyan/work
+      - ./src/kafka-basics.ipynb:/home/jovyan/work/kafka-basics.ipynb
     environment:
       - KAFKA_BROKERS=kafka
       - ZOOKEEPER_HOST=zookeeper
