@@ -1,14 +1,29 @@
 #!/usr/bin/env bash
 
+function ip_to_hex() {
+    local ip=${1:-$(hostname -i)}
+    awk -F '.' '
+    { first =$1 * 16777216;
+      second=$2 * 65536;
+      third =$3 * 256;
+      forth =$4;
+    }; END { printf "%08x\n", first + second + third + forth }' <<<"$ip" |
+      sed 's,\(..\)\(..\)\(..\)\(..\),\4\3\2\1,'
+}
+
 function check_port() {
     local PORT=${1}
+    local HOST_HEX=$(ip_to_hex)
 
     [ -z "$PORT" ] && echo "No PORT value is passed" >&2 && return 1
 
     local PORT_TCP=$(printf "00000000:%04x" "$PORT")
+    local PORT_TCP_HEX=$(printf "%s:%04x" "$HOST_HEX" "$PORT")
     local PORT_TCP_V6=$(printf "00000000000000000000000000000000:%04x" "$PORT")
 
-    grep -i -q "$PORT_TCP" /proc/net/tcp || grep -i -q "$PORT_TCP_V6" /proc/net/tcp6 || {
+    grep -i -q "$PORT_TCP" /proc/net/tcp ||
+      grep -i -q "$PORT_TCP_HEX" /proc/net/tcp ||
+      grep -i -q "$PORT_TCP_V6" /proc/net/tcp6 || {
         echo "No open port ${PORT} found" >&2
         return 1
     }

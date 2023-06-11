@@ -7,7 +7,7 @@ services:
     hostname: manager
     restart: on-failure
     container_name: manager
-    command: bash /usr/local/bin/entrypoint
+    command: /usr/local/bin/entrypoint
     networks:
       - kafka_network
     healthcheck:
@@ -28,12 +28,13 @@ services:
       - ./bin/manager.bashrc:/home/jovyan/.bashrc
       - ./src/kafka-basics.ipynb:/home/jovyan/work/kafka-basics.ipynb
     environment:
-      - KAFKA_BROKERS=kafka
+      - KAFKA_HOST=kafka
+      - KAFKA_PORT=9092
       - ZOOKEEPER_HOST=zookeeper
       - NOTEBOOK_ARGS=--NotebookApp.token='' --NotebookApp.password=''
       - RESTARTABLE=yes
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: zookeeper:3.8
     hostname: zookeeper
     restart: on-failure
     container_name: zookeeper
@@ -49,9 +50,7 @@ services:
       - "2181:2181"
     volumes:
       - ./bin/check-ports:/bin/check-ports:777
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+
   kafka:
     build:
       context: .
@@ -64,6 +63,7 @@ services:
     ports:
       - "9092:9092"
     healthcheck:
+      # kafka broker and ssh ports should be open
       test: /bin/check-ports 9092 2222
       interval: 10s
       timeout: 3s
