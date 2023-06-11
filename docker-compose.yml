@@ -21,8 +21,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      zookeeper:
-        condition: service_healthy
     volumes:
       - ./ssh:/home/jovyan/.ssh
       - ./bin/manager-entrypoint:/usr/local/bin/entrypoint:777
