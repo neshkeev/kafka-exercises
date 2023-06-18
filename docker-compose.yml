@@ -4,6 +4,7 @@ networks:
   kafka_network:
 
 x-check-ports: &check-ports ./bin/check-ports:/bin/check-ports
+
 x-service-template: &template
   restart: on-failure
   networks:
@@ -28,29 +29,38 @@ x-private-key: &private |+
   Fj2MdA6NmV09vh7DmVrDAAAAD3NwYXJrLWV4ZXJjaXNlcwECAwQFBg==
   -----END OPENSSH PRIVATE KEY-----
 
+x-depends-on-kafka: &depends-on-kafka
+  kafka1:
+    condition: service_healthy
+  kafka2:
+    condition: service_healthy
+  kafka3:
+    condition: service_healthy
+
 services:
   manager:
     <<: *template
     image: neshkeev/bash-notebook
-    hostname: &mname manager
-    container_name: *mname
+    hostname: &name manager
+    container_name: *name
     command: /usr/local/bin/entrypoint
     healthcheck:
       <<: *hc
       test: /bin/check-ports 8888
     ports:
       - "8888:8888"
-    depends_on:
-      kafka:
-        condition: service_healthy
+    depends_on: *depends-on-kafka
     volumes:
       - *check-ports
       - ./bin/manager-entrypoint:/usr/local/bin/entrypoint
       - ./bin/manager.bash_aliases:/home/jovyan/.bash_aliases
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
     environment:
-      KAFKA_HOST: kafka
+      KAFKA_HOST: kafka1
       KAFKA_PORT: 9092
+      ZOOKEEPER_HOST: zoo
+      ZOOKEEPER_PORT: 2181
+      DIND_HOST: dind
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
       RESTARTABLE: yes
       SSH_PRIVATE_KEY: *private
@@ -63,7 +73,7 @@ services:
     command: version
     healthcheck:
       <<: *hc
-      test: /bin/check-ports 22
+      test: sh /bin/check-ports 22
     volumes:
       - *check-ports
       - /var/run/docker.sock:/var/run/docker.sock
@@ -71,58 +81,62 @@ services:
     environment:
       SSH_PUB_KEY: *pub
 
-  kafka:
+  zoo:
     <<: *template
-    image: confluentinc/cp-kafka:7.4.0
-    hostname: &name kafka
+    image: zookeeper:3.8
+    hostname: &name zoo
     container_name: *name
-    ports:
-      - "9010:9010"
     healthcheck:
       <<: *hc
-      test: /bin/check-ports 9092 19092 9010
+      test: /bin/check-ports 2181
     environment:
-      CLUSTER_ID: JS-9P8KdQGG_lCVXikxM5w
-      KAFKA_NODE_ID: 1
+      ZOO_MY_ID: 1
 
-      KAFKA_PROCESS_ROLES: >
-        controller,
-        broker
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:19092
+  kafka1: &broker
+    <<: *template
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: &name kafka1
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 9092
+    depends_on:
+      zoo:
+        condition: service_healthy
+    environment: &brocker_env
+      KAFKA_BROKER_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_ZOOKEEPER_CONNECT: zoo:2181
 
-      KAFKA_LISTENERS: &listeners BROKER://kafka:9092, CONTROLLER://kafka:19092
-      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
-        BROKER:PLAINTEXT,
-        CONTROLLER:PLAINTEXT
+  kafka2:
+    << : *broker
+    hostname: &name kafka2
+    container_name: *name
+    environment:
+      <<: *brocker_env
+      KAFKA_BROKER_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
 
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      EXTRA_ARGS: >
-        -XX:StartFlightRecording=filename=/tmp/kafka.jfr
-        -Dcom.sun.management.jmxremote
-        -Dcom.sun.management.jmxremote.port=9010
-        -Dcom.sun.management.jmxremote.rmi.port=9010
-        -Dcom.sun.management.jmxremote.local.only=true
-        -Dcom.sun.management.jmxremote.authenticate=false
-        -Dcom.sun.management.jmxremote.ssl=false
-        -Djava.rmi.server.hostname=127.0.0.1
+  kafka3:
+    << : *broker
+    hostname: &name kafka3
+    container_name: *name
+    environment:
+      <<: *brocker_env
+      KAFKA_BROKER_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092
 
   redpanda:
     <<: *template
     image: docker.redpanda.com/redpandadata/console:v2.2.4
-    hostname: &rname redpanda
-    container_name: *rname
-    depends_on:
-      kafka:
-        condition: service_healthy
+    hostname: &name redpanda
+    container_name: *name
+    depends_on: *depends-on-kafka
     ports:
       - "8080:8080"
     healthcheck:
       <<: *hc
       test: sh /bin/check-ports 8080
     environment:
-      KAFKA_BROKERS: kafka:9092
+      KAFKA_BROKERS: kafka1:9092
