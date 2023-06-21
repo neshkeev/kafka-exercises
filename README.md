@@ -13,9 +13,10 @@
 
 # Быстрый старт
 
-1. `docker compose pull` - загрузить все образы локально
-1. `docker compose build` - запустить сборку. Для Apache Kafka настраивается ssh, поэтому необходимо выполнить сборку образа
-1. `docker compose up` - запуск docker сервисов
+1. Для старта необходимо запустить скрипт `./start`: `bash ./start`. Скрипт объединяет в себе:
+  - `docker compose pull` - загрузить все образы локально
+  - `docker compose build` - запустить сборку. Для Apache Kafka настраивается ssh, поэтому необходимо выполнить сборку образа
+  - `docker compose up` - запуск docker compose сервисов
 1. Открыть Jupyter Notebook в браузере: [http://localhost:8888](http://localhost:8888)
 1. Выбрать файл с Jupter Notebook на панели слева: `work` => `kafka-basics.ipynb`
 1. Открыть web консоль redpanda: [http://localhost:8080](http://localhost:8080)

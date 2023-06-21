@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+chmod -R +x ./bin
+chmod 777 ./ssh
+
+docker compose rm -f &&
+  docker compose pull &&
+  docker compose build &&
+  docker compose up --remove-orphans
