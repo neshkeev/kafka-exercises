@@ -12,36 +12,47 @@ x-service-template: &template
     interval: 5s
     timeout: 3s
     start_period: 10s
-    retries: 10
+    retries: 30
   volumes:
     - *check-ports
+
+x-depends-on-kafka: &depends-on-kafka
+  kafka1:
+    condition: service_healthy
+  kafka2:
+    condition: service_healthy
+  kafka3:
+    condition: service_healthy
 
 services:
   manager:
     <<: *template
     image: neshkeev/bash-notebook
-    hostname: &mname manager
-    container_name: *mname
+    hostname: &name manager
+    container_name: *name
     command: /usr/local/bin/entrypoint
+    depends_on:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
     healthcheck:
       <<: *hc
       test: /bin/check-ports 8888
     ports:
       - "8888:8888"
-    depends_on:
-      kafka:
-        condition: service_healthy
     volumes:
       - *check-ports
       - ./ssh:/home/jovyan/.ssh
-      - ./bin/manager-entrypoint:/usr/local/bin/entrypoint:777
+      - ./bin/manager-entrypoint:/usr/local/bin/entrypoint
       - ./bin/manager.bashrc:/home/jovyan/.bashrc
       - ./src/kafka-basics.ipynb:/home/jovyan/work/kafka-basics.ipynb
     environment:
-      KAFKA_HOST: kafka
+      KAFKA_HOST: kafka1
       KAFKA_PORT: 9092
       ZOOKEEPER_HOST: zookeeper
       ZOOKEEPER_PORT: 2181
+      KAFKA_REST_HOST: kafka-rest
+      KAFKA_REST_PORT: 8082
       DIND_HOST: dind
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
       RESTARTABLE: yes
@@ -49,19 +60,19 @@ services:
   zookeeper:
     <<: *template
     image: zookeeper:3.8
-    hostname: &zname zookeeper
-    container_name: *zname
+    hostname: &name zookeeper
+    container_name: *name
     healthcheck:
       <<: *hc
       test: /bin/check-ports 2181
 
-  kafka:
+  kafka1: &kafka
     <<: *template
     build:
       context: .
       dockerfile: local/Dockerfile_kafka
-    hostname: &kname kafka
-    container_name: *kname
+    hostname: &name kafka1
+    container_name: *name
     healthcheck:
       <<: *hc
       # kafka broker and ssh ports should be open
@@ -69,20 +80,69 @@ services:
     depends_on:
       zookeeper:
         condition: service_healthy
-    environment:
+    environment: &kafka_env
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_DELETE_TOPIC_ENABLE: true
+
+  kafka2:
+    << : *kafka
+    hostname: kafka2
+    container_name: kafka2
+    environment:
+      << : *kafka_env
+      KAFKA_BROKER_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
+
+  kafka3:
+    << : *kafka
+    hostname: kafka3
+    container_name: kafka3
+    environment:
+      << : *kafka_env
+      KAFKA_BROKER_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092
+
+  schema-registry:
+    <<: *template
+    image: confluentinc/cp-schema-registry:7.4.0
+    hostname: &name schema-registry
+    container_name: *name
+    depends_on: *depends-on-kafka
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  kafka-rest:
+    <<: *template
+    image: confluentinc/cp-kafka-rest:7.4.0
+    hostname: &name kafka-rest
+    container_name: *name
+    depends_on: *depends-on-kafka
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8082
+    environment:
+      KAFKA_REST_HOST_NAME: kafka-rest
+      KAFKA_REST_BOOTSTRAP_SERVERS: kafka1:9092
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
 
   redpanda:
     <<: *template
     image: docker.redpanda.com/redpandadata/console:v2.2.4
-    hostname: &rname redpanda
-    container_name: *rname
+    hostname: &name redpanda
+    container_name: *name
     depends_on:
-      kafka:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -90,7 +150,113 @@ services:
       <<: *hc
       test: sh /bin/check-ports 8080
     environment:
-      KAFKA_BROKERS: kafka:9092
+      KAFKA_BROKERS: kafka1:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: true
+      KAFKA_SCHEMAREGISTRY_URLS: http://schema-registry:8081
+      CONNECT_ENABLED: true
+      CONNECT_CLUSTERS_NAME: local
+      CONNECT_CLUSTERS_URL: http://connect:8083
+
+  akhq:
+    <<: *template
+    image: tchiotludo/akhq
+    hostname: &name akhq
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8080
+    ports:
+      - "18080:8080"
+    depends_on:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            docker-kafka-server:
+              properties:
+                bootstrap.servers: kafka1:9092
+              schema-registry:
+                url: http://schema-registry:8081
+              connect:
+                - name: connect
+                  url: http://connect:8083
+
+  kafka-ui:
+    <<: *template
+    image: provectuslabs/kafka-ui:latest
+    hostname: &name kafka-ui
+    container_name: *name
+    ports:
+      - "28080:8080"
+    depends_on:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092
+        # KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: local
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+
+  kafdrop:
+    <<: *template
+    image: obsidiandynamics/kafdrop
+    hostname: &name kafdrop
+    container_name: *name
+    ports:
+      - "38080:9000"
+    depends_on:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 9000
+    environment:
+      KAFKA_BROKERCONNECT: kafka1:9092
+      JVM_OPTS: "-Xms32M -Xmx64M"
+      SERVER_SERVLET_CONTEXTPATH: /
+      SCHEMAREGISTRY_CONNECT: http://schema-registry:8081
+
+  control-center:
+    <<: *template
+    image: confluentinc/cp-enterprise-control-center:7.4.0
+    hostname: &name control-center
+    container_name: *name
+    ports:
+      - "48080:9021"
+    depends_on:
+      <<: *depends-on-kafka
+      connect:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 9021
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      CONTROL_CENTER_CONNECT_CONNECT1_CLUSTER: http://connect:8083
+      PORT: 9021
 
   dind:
     <<: *template
@@ -109,3 +275,30 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-kafka-exercises}
+
+  connect:
+    <<: *template
+    image: confluentinc/cp-kafka-connect:7.0.1
+    hostname: &name connect
+    container_name: *name
+    depends_on:
+      <<: *depends-on-kafka
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8083
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka1:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
