@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Producer" type="Application" factoryName="Application" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="com.github.neshkeev.kafka.Producer" />
+    <module name="kafka-java-demo" />
+    <option name="PROGRAM_PARAMETERS" value="localhost:19092 my-java-api-topic" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

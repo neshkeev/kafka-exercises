@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package com.github.neshkeev.kafka.customer;
+
+message Key {
+    string id = 1;
+}

@@ -20,6 +20,12 @@
 1. Открыть Jupyter Notebook в браузере: [http://localhost:8888](http://localhost:8888);
 1. Выбрать файл с Jupter Notebook на панели слева: `work` => `work.ipynb`;
 1. Открыть web консоль redpanda: [http://localhost:8080](http://localhost:8080);
+1. Запустить тесты:
+    1. указать адрес schema registry: `export KAFKA_SСHEMA_REGISTRY=http://localhost:8081`;
+    1. запустить компиляцию `mvn compile -Pwith-validation`;
+    1. запустить тесты `mvn test -Pwith-validation`;
+    1. запустить продюсер: `mvn exec:java -Dexec.mainClass='com.github.neshkeev.kafka.Producer' -Dexec.args='localhost:19092 my-java-api-topic'`;
+    1. запустить консьюмер: `mvn exec:java -Dexec.mainClass='com.github.neshkeev.kafka.Consumer' -Dexec.args='localhost:19092 my-java-api-topic'`.
 1. Переход к следующему шагу можно осуществить при помощи скрипта `./next`: `bash next`. Скрипт выполнит следующие действия:
     - остановит запущенные docker сервисы,
     - зафиксирует внесенные изменения в виде коммита,

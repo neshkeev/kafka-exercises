@@ -14,6 +14,10 @@ function configure_private_key() {
     chmod 600 "${private_key_location}"
 }
 
+function clear_known_hosts() {
+    > ~/.ssh/known_hosts
+}
+
 function trust_ssh_host() {
     local host=${1}
     local host_ip=$(get_host_ip ${host})
@@ -22,7 +26,7 @@ function trust_ssh_host() {
         echo "[WARN] No ${host}'s IP found" >&2
     }
 
-    ( ssh-keyscan ${host} ; ssh-keyscan ${host_ip:-host} ) | sort -u > ~/.ssh/known_hosts
+    ( ssh-keyscan ${host} ; ssh-keyscan ${host_ip:-host} ) | sort -u >> ~/.ssh/known_hosts
 }
 
 function configure_ssh_environment_variables() {
@@ -32,7 +36,9 @@ function configure_ssh_environment_variables() {
 function setup_ssh() {
     mkdir -p ~/.ssh &&
         configure_private_key &&
+        clear_known_hosts &&
         trust_ssh_host dind &&
+        trust_ssh_host ${MAVEN_HOST} &&
         configure_ssh_environment_variables
 }
 
