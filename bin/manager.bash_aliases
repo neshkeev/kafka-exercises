@@ -176,3 +176,7 @@ function ksql(){
 
     HOST=${KSQL_CLI_HOST} execute "/usr/bin/ksql" "$@"
 }
+
+function mvn() {
+    HOST=${MAVEN_HOST:-maven} execute "mvn $@"
+}

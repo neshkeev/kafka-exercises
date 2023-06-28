@@ -1,0 +1,1 @@
+{"type":"record","name":"PlayEvent","namespace":"com.github.neshkeev.kafka.avro","fields":[{"name":"id","type":"long"},{"name":"duration","type":"int"}]}

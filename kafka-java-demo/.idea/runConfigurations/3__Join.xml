@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="3. Join" type="Application" factoryName="Application">
+    <envs>
+      <env name="KAFKA_BOOTSTRAP_SERVERS" value="localhost:19092" />
+      <env name="KAFKA_SCHEMA_REGISTRY" value="http://localhost:8081" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.github.neshkeev.kafka.streams.GetSongsPlayCount" />
+    <module name="kafka-java-demo" />
+    <option name="PROGRAM_PARAMETERS" value="30" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

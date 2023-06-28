@@ -28,6 +28,10 @@ x-private-key: &private |+
   Fj2MdA6NmV09vh7DmVrDAAAAD3NwYXJrLWV4ZXJjaXNlcwECAwQFBg==
   -----END OPENSSH PRIVATE KEY-----
 
+x-depends-on-kafka: &depends-on-kafka
+  kafka:
+    condition: service_healthy
+
 services:
   manager:
     <<: *template
@@ -51,8 +55,11 @@ services:
     environment:
       KAFKA_HOST: kafka
       KAFKA_PORT: 9092
+      DIND_HOST: dind
+      KSQL_SERVER_HOST: ksqldb-server
+      KSQL_SERVER_PORT: 8088
+      KSQL_CLI_HOST: ksqldb-cli
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
-      RESTARTABLE: yes
       SSH_PRIVATE_KEY: *private
 
   dind:
@@ -60,10 +67,11 @@ services:
     image: neshkeev/dind
     hostname: &name dind
     container_name: *name
+    working_dir: /${COMPOSE_PROJECT_NAME}
     command: version
     healthcheck:
       <<: *hc
-      test: /bin/check-ports 22
+      test: sh /bin/check-ports 22
     volumes:
       - *check-ports
       - /var/run/docker.sock:/var/run/docker.sock
@@ -111,6 +119,23 @@ services:
         -Dcom.sun.management.jmxremote.ssl=false
         -Djava.rmi.server.hostname=127.0.0.1
 
+
+  schema-registry:
+    <<: *template
+    image: confluentinc/cp-schema-registry:7.4.0
+    hostname: &name schema-registry
+    container_name: *name
+    depends_on: *depends-on-kafka
+    ports:
+      - "8081:8081"
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
   redpanda:
     <<: *template
     image: docker.redpanda.com/redpandadata/console:v2.2.4
@@ -126,3 +151,58 @@ services:
       test: sh /bin/check-ports 8080
     environment:
       KAFKA_BROKERS: kafka:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: true
+      KAFKA_SCHEMAREGISTRY_URLS: http://schema-registry:8081
+
+  maven:
+    <<: *template
+    image: maven:3-amazoncorretto-11-debian
+    hostname: &name maven
+    working_dir: /root/kafka-java-demo
+    container_name: *name
+    command: /usr/local/bin/entrypoint
+    healthcheck:
+      <<: *hc
+      test: 'true'
+    volumes:
+      - ./bin/maven-entrypoint:/usr/local/bin/entrypoint
+      - ./kafka-java-demo/pom.xml:/root/kafka-java-demo/pom.xml
+      - ./kafka-java-demo/src:/root/kafka-java-demo/src
+    environment:
+      KAFKA_SCHEMA_REGISTRY: http://schema-registry:8081
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  ksqldb-server:
+    <<: *template
+    image: confluentinc/ksqldb-server:0.29.0
+    hostname: &name ksqldb-server
+    container_name: *name
+    depends_on:
+      <<: *depends-on-kafka
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8088
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: kafka:9092
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: true
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: true
+      KSQL_KSQL_SERVICE_ID: ksql-cluster
+      KSQL_AUTO_OFFSET_RESET: earliest
+      CONNECT_HOST: ksqldb-server
+
+  ksqldb-cli:
+    <<: *template
+    image: confluentinc/ksqldb-cli:0.29.0
+    hostname: &name ksqldb-cli
+    container_name: *name
+    command: sleep infinity
+    depends_on:
+      ksqldb-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: 'true'

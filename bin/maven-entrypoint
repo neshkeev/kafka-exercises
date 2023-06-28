@@ -1,0 +1,11 @@
+#! /usr/bin/env bash
+
+echo "export KAFKA_SCHEMA_REGISTRY=${KAFKA_SCHEMA_REGISTRY}" > ~/.bashrc
+echo "export KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS}" >> ~/.bashrc
+
+[ -d /root/kafka-java-demo ] && {
+    cd /root/kafka-java-demo
+    mvn dependency:go-offline package -Pwith-validation -T 4 >/dev/null &
+}
+
+tail -f /dev/null

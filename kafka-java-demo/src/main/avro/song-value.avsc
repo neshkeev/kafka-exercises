@@ -1,0 +1,1 @@
+{"type":"record","name":"Song","namespace":"com.github.neshkeev.kafka.avro","fields":[{"name":"id","type":"long"},{"name":"name","type":"string"},{"name":"artist","type":"string"},{"name":"album","type":"string"},{"name":"genre","type":"string"}]}
