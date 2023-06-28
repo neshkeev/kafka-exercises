@@ -176,3 +176,31 @@ function ksql(){
 
     HOST=${KSQL_CLI_HOST} execute "/usr/bin/ksql" "$@"
 }
+
+function confluent-hub() {
+    HOST="${CONNECT_HOST:-connect}" execute "/usr/bin/confluent-hub $@"
+}
+
+function psql() {
+    HOST="postgres" execute "psql $@"
+}
+
+function kafka-avro-console-producer() {
+    HOST="schema-registry" execute "/usr/bin/kafka-avro-console-producer $@"
+}
+
+function kafka-avro-console-consumer() {
+    HOST="schema-registry" execute "/usr/bin/kafka-avro-console-consumer $@"
+}
+
+function escape_double_qoutes() {
+    sed 's,",\\",g'
+}
+
+function single_line() {
+    sed -n '1h;1!H;${g;s,\n,,gp}'
+}
+
+function skip_ws() {
+    sed 's, ,,g'
+}

@@ -1,0 +1,26 @@
+#! /usr/bin/env bash
+
+function get_plugin_dir() {
+    [ -d "${CONNECT_PLUGIN_PATH}" ] && {
+        echo "${CONNECT_PLUGIN_PATH}"
+        return 0
+    }
+    [ -d "${KAFKA_CONNECT_PLUGINS_DIR}" ] && {
+        echo "${KAFKA_CONNECT_PLUGINS_DIR}"
+        return 0
+    }
+
+    echo '/kafka/connect'
+}
+
+cd $(get_plugin_dir)
+
+curl -LO https://packages.confluent.io/maven/io/confluent/kafka-connect-avro-converter/7.4.0/kafka-connect-avro-converter-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/kafka-connect-avro-data/7.4.0/kafka-connect-avro-data-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/7.4.0/kafka-avro-serializer-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/kafka-schema-serializer/7.4.0/kafka-schema-serializer-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/7.4.0/kafka-schema-registry-client-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/common-config/7.4.0/common-config-7.4.0.jar
+curl -LO https://packages.confluent.io/maven/io/confluent/common-utils/7.4.0/common-utils-7.4.0.jar
+
+bash /docker-entrypoint.sh start
