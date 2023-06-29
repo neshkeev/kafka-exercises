@@ -14,12 +14,14 @@
 # Быстрый старт
 
 1. Для старта необходимо запустить скрипт `./start`: `bash ./start`. Скрипт объединяет в себе:
-    - `docker compose pull` - загрузить все образы локально;
-    - `docker compose build` - запустить сборку. Для Apache Kafka настраивается ssh, поэтому необходимо выполнить сборку образа;
-    - `docker compose up` - запуск docker compose сервисов.
-1. Открыть Jupyter Notebook в браузере: [http://localhost:8888](http://localhost:8888);
-1. Выбрать файл с Jupter Notebook на панели слева: `work` => `kafka-basics.ipynb`;
-1. Открыть web консоль redpanda: [http://localhost:8080](http://localhost:8080);
+  - `docker compose pull` - загрузить все образы локально
+  - `docker compose build` - запустить сборку. Для Apache Kafka настраивается ssh, поэтому необходимо выполнить сборку образа
+  - `docker compose up` - запуск docker compose сервисов
+1. Открыть Jupyter Notebook в браузере: [http://localhost:8888](http://localhost:8888)
+1. Выбрать файл с Jupter Notebook на панели слева: `work` => `kafka-basics.ipynb`
+1. Открыть web консоль redpanda: [http://localhost:8080](http://localhost:8080)
+1. Открыть prometheus: [http://localhost:9090](http://localhost:9090)
+1. Открыть grafana: [http://localhost:3000](http://localhost:3000). Логин: admin, пароль: admin
 1. Переход к следующему шагу можно осуществить при помощи скрипта `./next`: `bash next`. Скрипт выполнит следующие действия:
     - остановит запущенные docker сервисы,
     - зафиксирует внесенные изменения в виде коммита,

@@ -8,7 +8,7 @@ function index_clean() {
     git diff --cached --quiet
 }
 
-next_branch='01.simple-zookeeper-setup'
+next_branch='11.multi-region-replication'
 
 tree_clean || { git commit -am "Save changes" ; } &&
     index_clean || { git commit -am "Save changes" ; } &&

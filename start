@@ -6,7 +6,13 @@ chmod -R +x ./bin
 chmod -R 777 ./src
 chmod 777 ./ssh
 
-MSYS_NO_PATHCONV=1 docker compose stop &&
+function download_javaagents() {
+  curl -k -Lo ./jmx-exporter/jmx_prometheus_javaagent.jar https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.18.0/jmx_prometheus_javaagent-0.18.0.jar &&
+  curl -k -Lo ./jmx-exporter/jolokia-jvm-1.7.1.jar https://repo1.maven.org/maven2/org/jolokia/jolokia-jvm/1.7.1/jolokia-jvm-1.7.1.jar
+}
+
+MSYS_NO_PATHCONV=1 download_javaagents &&
+  docker compose stop &&
   docker compose rm -f &&
   docker compose pull &&
   docker compose build &&

@@ -4,6 +4,15 @@ networks:
   kafka_network:
 
 x-check-ports: &check-ports ./bin/check-ports:/bin/check-ports
+x-jmx-exporter: &jmx-exporter ./jmx-exporter:/usr/share/jmx-exporter
+x-depends-on-kafka: &depends-on-kafka
+  kafka1:
+    condition: service_healthy
+  kafka2:
+    condition: service_healthy
+  kafka3:
+    condition: service_healthy
+
 x-service-template: &template
   restart: on-failure
   networks:
@@ -12,9 +21,10 @@ x-service-template: &template
     interval: 5s
     timeout: 3s
     start_period: 10s
-    retries: 10
+    retries: 20
   volumes:
-    - *check-ports
+    - *check-ports 
+    - *jmx-exporter 
 
 services:
   manager:
@@ -28,9 +38,7 @@ services:
       test: /bin/check-ports 8888
     ports:
       - "8888:8888"
-    depends_on:
-      kafka:
-        condition: service_healthy
+    depends_on: *depends-on-kafka
     volumes:
       - *check-ports
       - ./ssh:/home/jovyan/.ssh
@@ -38,43 +46,100 @@ services:
       - ./bin/manager.bashrc:/home/jovyan/.bashrc
       - ./src/kafka-basics.ipynb:/home/jovyan/work/kafka-basics.ipynb
     environment:
-      KAFKA_HOST: kafka
+      KAFKA_HOST: kafka1
       KAFKA_PORT: 9092
       ZOOKEEPER_HOST: zookeeper
       ZOOKEEPER_PORT: 2181
       DIND_HOST: dind
+      CONNECT_HOST: connect
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
       RESTARTABLE: yes
 
-  zookeeper:
+  zoo1: &zookeeper
     <<: *template
-    image: zookeeper:3.8
-    hostname: &zname zookeeper
-    container_name: *zname
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: &name zoo1
+    container_name: *name
     healthcheck:
       <<: *hc
-      test: /bin/check-ports 2181
+      test: /bin/check-ports 2181 1234
+    environment: &zoo_env
+      ZOOKEEPER_MY_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOO_KEEPER_SERVERS: >
+        server.1=zoo1:2888:3888;2181 
+        server.2=zoo2:2888:3888;2181 
+        server.3=zoo3:2888:3888;2181
+      EXTRA_ARGS: >
+        -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/zookeeper.yml
 
-  kafka:
+  zoo2:
+    << : *zookeeper
+    hostname: zoo2
+    container_name: zoo2
+    environment:
+      << : *zoo_env
+      ZOO_MY_ID: 2
+
+  zoo3:
+    << : *zookeeper
+    hostname: zoo3
+    container_name: zoo3
+    environment:
+      << : *zoo_env
+      ZOO_MY_ID: 3
+
+  kafka1: &kafka
     <<: *template
-    build:
-      context: .
-      dockerfile: local/Dockerfile_kafka
-    hostname: &kname kafka
-    container_name: *kname
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: &name kafka1
+    container_name: *name
+    command: bash /bin/entrypoint
     healthcheck:
       <<: *hc
       # kafka broker and ssh ports should be open
-      test: /bin/check-ports 9092 2222
+      test: /bin/check-ports 9092 1234
     depends_on:
-      zookeeper:
+      zoo1:
         condition: service_healthy
-    environment:
+      zoo2:
+        condition: service_healthy
+      zoo3:
+        condition: service_healthy
+    volumes:
+      - *check-ports 
+      - *jmx-exporter 
+      - ./bin/kafka-entrypoint:/bin/entrypoint
+    environment: &kafka_env
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_DELETE_TOPIC_ENABLE: true
+      KAFKA_ZOOKEEPER_CONNECT: zoo1:2181,zoo2:2181,zoo3:2181
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_JMX_HOSTNAME: *name
+      EXTRA_ARGS: >
+        -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/kafka_broker.yml
+
+  kafka2:
+    << : *kafka
+    hostname: kafka2
+    container_name: kafka2
+    environment:
+      <<: *kafka_env
+      KAFKA_BROKER_ID: 2
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
+      KAFKA_JMX_HOSTNAME: kafka2
+
+  kafka3:
+    << : *kafka
+    hostname: kafka3
+    container_name: kafka3
+    environment:
+      <<: *kafka_env
+      KAFKA_BROKER_ID: 3
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092
+      KAFKA_JMX_HOSTNAME: kafka3
 
   redpanda:
     <<: *template
@@ -82,15 +147,23 @@ services:
     hostname: &rname redpanda
     container_name: *rname
     depends_on:
-      kafka:
+      <<: *depends-on-kafka
+      schema-registry:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+      connect:
+        condition: service_healthy
     healthcheck:
       <<: *hc
       test: sh /bin/check-ports 8080
+    ports:
+      - "8080:8080"
     environment:
-      KAFKA_BROKERS: kafka:9092
+      KAFKA_BROKERS: kafka1:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: true
+      KAFKA_SCHEMAREGISTRY_URLS: http://schema-registry:8081
+      CONNECT_ENABLED: true
+      CONNECT_CLUSTERS_NAME: local
+      CONNECT_CLUSTERS_URL: http://connect:8083
 
   dind:
     <<: *template
@@ -104,8 +177,147 @@ services:
       test: sh /bin/check-ports 2222
     privileged: true
     volumes:
-      - *check-ports
+      - *check-ports 
       - ./docker-compose.yml:/root/${CURRENT_DIR_NAME:-kafka-exercises}/docker-compose.yml
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-kafka-exercises}
+
+  schema-registry:
+    <<: *template
+    image: confluentinc/cp-schema-registry:7.4.0
+    hostname: &name schema-registry
+    container_name: *name
+    depends_on: *depends-on-kafka
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8081 1234
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: *name
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      EXTRA_ARGS: -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/confluent_schemaregistry.yml
+
+  connect:
+    <<: *template
+    image: confluentinc/cp-kafka-connect:7.0.1
+    hostname: &name connect
+    container_name: *name
+    depends_on:
+      <<: *depends-on-kafka
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8083 1234
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka1:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: compose-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-6.2.1.jar
+      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor
+      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
+      EXTRA_ARGS:
+        -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/kafka_connect.yml
+        -javaagent:/usr/share/jmx-exporter/jolokia-jvm-1.7.1.jar=port=1235,host=*
+        -Djava.util.logging.config.file=/usr/share/jmx-exporter/exporter_debug_logging.properties
+
+  ksqldb-server:
+    <<: *template
+    image: confluentinc/ksqldb-server:0.29.0
+    hostname: &name ksqldb-server
+    container_name: *name
+    depends_on:
+      <<: *depends-on-kafka
+      schema-registry:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8088 1234
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: kafka1:9092
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: true
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: true
+      KSQL_KSQL_SERVICE_ID: ksql-cluster
+      KSQL_AUTO_OFFSET_RESET: earliest
+      CONNECT_HOST: *name
+      KSQL_OPTS:
+        -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/confluent_ksql.yml
+        -javaagent:/usr/share/jmx-exporter/jolokia-jvm-1.7.1.jar=port=1235,host=*
+        -Djava.util.logging.config.file=/usr/share/jmx-exporter/exporter_debug_logging.properties
+
+  kafka-rest:
+    <<: *template
+    image: confluentinc/cp-kafka-rest:7.4.0
+    hostname: &name kafka-rest
+    container_name: *name
+    depends_on: *depends-on-kafka
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 8082 1234
+    environment:
+      KAFKA_REST_HOST_NAME: kafka-rest
+      KAFKA_REST_BOOTSTRAP_SERVERS: kafka1:9092
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
+      KAFKAREST_OPTS:
+        -javaagent:/usr/share/jmx-exporter/jmx_prometheus_javaagent.jar=1234:/usr/share/jmx-exporter/confluent_rest.yml
+        -javaagent:/usr/share/jmx-exporter/jolokia-jvm-1.7.1.jar=port=1235,host=*
+        -Djava.util.logging.config.file=/usr/share/jmx-exporter/exporter_debug_logging.properties
+
+  kafka-lag-exporter:
+    <<: *template
+    image: lightbend/kafka-lag-exporter:0.6.7
+    container_name: &name kafka-lag-exporter
+    hostname: *name
+    depends_on: *depends-on-kafka
+    volumes:
+      - ./kafka-lag-exporter:/opt/docker/conf
+
+  prometheus:
+    <<: *template
+    image: prom/prometheus
+    hostname: &name prometheus
+    container_name: *name
+      # depends_on: *depends-on-kafka
+    ports:
+      - "9090:9090"
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 9090
+    volumes:
+      - *check-ports
+      - ./prometheus:/etc/prometheus
+
+  grafana:
+    <<: *template
+    image: grafana/grafana
+    hostname: &name grafana
+    container_name: *name
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 3000
+    volumes:
+      - *check-ports
+      - ./grafana/provisioning/:/etc/grafana/provisioning
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: true
