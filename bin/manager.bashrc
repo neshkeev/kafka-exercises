@@ -4,7 +4,7 @@ function sshcat() {
 
     [ "$file_name" == "-" ] && local file_name='&1'
 
-    ssh appuser@"${host_name}" -p 2222 "cat - >${file_name}"
+    ssh "${SSH_USER:-appuser}"@"${host_name}" -p 2222 "cat - >${file_name}"
 }
 
 function ssheval() {
@@ -12,143 +12,143 @@ function ssheval() {
 }
 
 function kafka-acls() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-acls $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-acls $@
 }
 
 function kafka-broker-api-versions() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-broker-api-versions $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-broker-api-versions $@
 }
 
 function kafka-cluster() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-cluster $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-cluster $@
 }
 
 function kafka-configs() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-configs $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-configs $@
 }
 
 function kafka-console-consumer() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-console-consumer $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-console-consumer $@
 }
 
 function kafka-console-producer() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-console-producer $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-console-producer $@
 }
 
 function kafka-consumer-groups() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-consumer-groups $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-consumer-groups $@
 }
 
 function kafka-consumer-perf-test() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-consumer-perf-test $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-consumer-perf-test $@
 }
 
 function kafka-delegation-tokens() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-delegation-tokens $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-delegation-tokens $@
 }
 
 function kafka-delete-records() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-delete-records $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-delete-records $@
 }
 
 function kafka-dump-log() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-dump-log $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-dump-log $@
 }
 
 function kafka-features() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-features $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-features $@
 }
 
 function kafka-get-offsets() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-get-offsets $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-get-offsets $@
 }
 
 function kafka-leader-election() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-leader-election $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-leader-election $@
 }
 
 function kafka-log-dirs() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-log-dirs $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-log-dirs $@
 }
 
 function kafka-metadata-quorum() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-metadata-quorum $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-metadata-quorum $@
 }
 
 function kafka-metadata-shell() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-metadata-shell $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-metadata-shell $@
 }
 
 function kafka-mirror-maker() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-mirror-maker $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-mirror-maker $@
 }
 
 function kafka-preferred-replica-election() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-preferred-replica-election $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-preferred-replica-election $@
 }
 
 function kafka-producer-perf-test() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-producer-perf-test $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-producer-perf-test $@
 }
 
 function kafka-reassign-partitions() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-reassign-partitions $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-reassign-partitions $@
 }
 
 function kafka-replica-verification() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-replica-verification $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-replica-verification $@
 }
 
 function kafka-run-class() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-run-class $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-run-class $@
 }
 
 function kafka-server-start() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-server-start $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-server-start $@
 }
 
 function kafka-server-stop() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-server-stop $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-server-stop $@
 }
 
 function kafka-storage() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-storage $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-storage $@
 }
 
 function kafka-streams-application-reset() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-streams-application-reset $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-streams-application-reset $@
 }
 
 function kafka-topics() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-topics $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-topics $@
 }
 
 function kafka-transactions() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-transactions $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-transactions $@
 }
 
 function kafka-verifiable-consumer() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-verifiable-consumer $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-verifiable-consumer $@
 }
 
 function kafka-verifiable-producer() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/kafka-verifiable-producer $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/kafka-verifiable-producer $@
 }
 
 function zookeeper-security-migration() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/zookeeper-security-migration $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/zookeeper-security-migration $@
 }
 
 function zookeeper-server-start() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/zookeeper-server-start $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/zookeeper-server-start $@
 }
 
 function zookeeper-server-stop() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/zookeeper-server-stop $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/zookeeper-server-stop $@
 }
 
 function zookeeper-shell() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/zookeeper-shell $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/zookeeper-shell $@
 }
 
 function ksql(){
@@ -160,9 +160,13 @@ function ksql(){
 }
 
 function connect-mirror-maker() {
-    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/connect-mirror-maker $@"
+    docker compose exec -T "$KAFKA_HOST" /usr/bin/connect-mirror-maker $@
 }
 
 function docker() {
     ssh -o ConnectTimeout=10 root@"$DIND_HOST" -p 2222 "cd /root/\$(cat /tmp/cwd); /usr/local/bin/docker $@"
+}
+
+function confluent-hub() {
+    docker compose exec -it connect /usr/bin/confluent-hub $@
 }

@@ -4,6 +4,7 @@ export CURRENT_DIR_NAME=${PWD##*/}
 
 chmod -R +x ./bin
 chmod -R 777 ./src
+chmod -R 777 ./conf
 chmod 777 ./ssh
 
 MSYS_NO_PATHCONV=1 docker compose stop &&

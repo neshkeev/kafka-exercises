@@ -20,8 +20,8 @@ services:
   manager:
     <<: *template
     image: neshkeev/bash-notebook
-    hostname: &mname manager
-    container_name: *mname
+    hostname: &name manager
+    container_name: *name
     command: /usr/local/bin/entrypoint
     healthcheck:
       <<: *hc
@@ -29,60 +29,83 @@ services:
     ports:
       - "8888:8888"
     depends_on:
-      kafka:
+      kafka-active:
         condition: service_healthy
     volumes:
       - *check-ports
       - ./ssh:/home/jovyan/.ssh
-      - ./bin/manager-entrypoint:/usr/local/bin/entrypoint:777
+      - ./bin/manager-entrypoint:/usr/local/bin/entrypoint
       - ./bin/manager.bashrc:/home/jovyan/.bashrc
       - ./src/kafka-basics.ipynb:/home/jovyan/work/kafka-basics.ipynb
+      - ./src/kafka-consumer.ipynb:/home/jovyan/work/kafka-consumer.ipynb
     environment:
-      KAFKA_HOST: kafka
+      KAFKA_HOST: kafka-active
       KAFKA_PORT: 9092
-      ZOOKEEPER_HOST: zookeeper
-      ZOOKEEPER_PORT: 2181
+      KAFKA_STANDBY_HOST: kafka-standby
+      KAFKA_STANDBY_PORT: 9092
+      ZOOKEEPER_HOST: zoo-active
       DIND_HOST: dind
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
       RESTARTABLE: yes
 
-  zookeeper:
+  zoo-active: &zookeeper
     <<: *template
     image: zookeeper:3.8
-    hostname: &zname zookeeper
-    container_name: *zname
+    hostname: &name zoo-active
+    container_name: *name
     healthcheck:
       <<: *hc
       test: /bin/check-ports 2181
 
-  kafka:
+  zoo-standby:
+    << : *zookeeper
+    hostname: &name zoo-standby
+    container_name: *name
+    networks:
+      - kafka_network
+
+  kafka-active: &broker
     <<: *template
-    build:
-      context: .
-      dockerfile: local/Dockerfile_kafka
-    hostname: &kname kafka
-    container_name: *kname
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: &name kafka-active
+    container_name: *name
+    command: bash /bin/entrypoint
     healthcheck:
       <<: *hc
       # kafka broker and ssh ports should be open
-      test: /bin/check-ports 9092 2222
+      test: /bin/check-ports 9092
     depends_on:
-      zookeeper:
+      zoo-active:
         condition: service_healthy
-    environment:
+    volumes:
+      - *check-ports
+      - ./bin/kafka-entrypoint:/bin/entrypoint
+      - ./conf/connect-log4j.properties:/usr/config/connect-log4j.properties
+    environment: &broker-env
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: 'zoo-active:2181'
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_DELETE_TOPIC_ENABLE: true
+      KAFKA_LISTENERS: PLAINTEXT://kafka-active:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-active:9092
+        # MIRROR_MAKER_LOG_CONFIG: /tmp/connect-log4j.properties
 
-  redpanda:
+  kafka-standby:
+    << : *broker
+    hostname: &name kafka-standby
+    container_name: *name
+    environment:
+      << : *broker-env
+      KAFKA_ZOOKEEPER_CONNECT: 'zoo-standby:2181'
+      KAFKA_LISTENERS: PLAINTEXT://kafka-standby:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-standby:9092
+
+  redpanda-active: &redpanda
     <<: *template
     image: docker.redpanda.com/redpandadata/console:v2.2.4
-    hostname: &rname redpanda
-    container_name: *rname
+    hostname: &name redpanda
+    container_name: *name
     depends_on:
-      kafka:
+      kafka-active:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -90,7 +113,16 @@ services:
       <<: *hc
       test: sh /bin/check-ports 8080
     environment:
-      KAFKA_BROKERS: kafka:9092
+      KAFKA_BROKERS: kafka-active:9092
+
+  redpanda-standby:
+    << : *redpanda
+    hostname: redpanda-standby
+    container_name: redpanda-standby
+    ports:
+      - "18080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka-standby:9092
 
   dind:
     <<: *template

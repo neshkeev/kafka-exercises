@@ -17,6 +17,8 @@ RUN ssh-keygen -A && \
     chown appuser:appuser /etc/ssh/sshd_config && \
     echo "AllowUsers appuser" >> /etc/ssh/sshd_config && \
     echo "Port 2222" >> /etc/ssh/sshd_config && \
+    mkdir /usr/config && \
+    chmod -R 777 /usr/config && \
     true
 
 USER appuser
