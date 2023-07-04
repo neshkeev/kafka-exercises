@@ -1,10 +1,13 @@
 function sshcat() {
     local file_name=${1:-&1}
+    local host_name=${2:-"$KAFKA_HOST"}
+
     [ "$file_name" == "-" ] && local file_name='&1'
-    ssh appuser@"$KAFKA_HOST" -p 2222 "cat - >${file_name}"
+
+    ssh appuser@"${host_name}" -p 2222 "cat - >${file_name}"
 }
 
-function kcmd() {
+function ssheval() {
     ssh appuser@"$KAFKA_HOST" -p 2222 "$@"
 }
 
@@ -146,4 +149,16 @@ function zookeeper-server-stop() {
 
 function zookeeper-shell() {
     ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/zookeeper-shell $@"
+}
+
+function ksql(){
+    [ -z "$KSQL_CLI_HOST" ] && {
+        echo "No KSQL_CLI_HOST environment variable defined" >&2
+        return 1
+    }
+    ssh -o ConnectTimeout=10 appuser@"$KSQL_CLI_HOST" -p 2222 "/usr/bin/ksql $@"
+}
+
+function connect-mirror-maker() {
+    ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/connect-mirror-maker $@"
 }

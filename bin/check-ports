@@ -1,37 +1,32 @@
 #!/usr/bin/env bash
 
-function ip_to_hex() {
-    local ip=${1:-$(hostname -i)}
-    awk -F '.' '
-    { first =$1 * 16777216;
-      second=$2 * 65536;
-      third =$3 * 256;
-      forth =$4;
-    }; END { printf "%08x\n", first + second + third + forth }' <<<"$ip" |
-      sed 's,\(..\)\(..\)\(..\)\(..\),\4\3\2\1,'
+function info() {
+    echo "$@"
+}
+
+function error() {
+    echo "$@" >&2
+    return 1
 }
 
 function check_port() {
-    local PORT=${1}
-    local HOST_HEX=$(ip_to_hex)
+    local port_hex=$(printf "%04x" ${1})
 
-    [ -z "$PORT" ] && echo "No PORT value is passed" >&2 && return 1
-
-    local PORT_TCP=$(printf "00000000:%04x" "$PORT")
-    local PORT_TCP_HEX=$(printf "%s:%04x" "$HOST_HEX" "$PORT")
-    local PORT_TCP_V6=$(printf "00000000000000000000000000000000:%04x" "$PORT")
-
-    grep -i -q "$PORT_TCP" /proc/net/tcp ||
-      grep -i -q "$PORT_TCP_HEX" /proc/net/tcp ||
-      grep -i -q "$PORT_TCP_V6" /proc/net/tcp6 || {
-        echo "No open port ${PORT} found" >&2
-        return 1
-    }
+    cat /proc/net/tcp \
+        /proc/net/tcp6 \
+        /proc/net/udp \
+        /proc/net/udp6 |
+    awk '!/local_address/{
+        split($2,port,":");
+        print port[2]
+    }' | grep -i -q "^${port_hex}$"
 }
 
 ok=0
 for port in ${*}; do
-    check_port "$port"
+    check_port "$port" || {
+        error "No ${port} port open"
+    }
     ok=$((ok + $?))
 done
 
