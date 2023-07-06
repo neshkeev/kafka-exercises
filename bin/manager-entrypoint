@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function setup_ssh() {
-    ssh-keyscan -p 2222 ${KAFKA_HOST} > ~/.ssh/known_hosts
+    ( ssh-keyscan -p 2222 ${KAFKA_HOST} ; ssh-keyscan -p 2222 ${DIND_HOST} ) > ~/.ssh/known_hosts
     printf 'Host *\n\tSetEnv LC_ALL=C' > ~/.ssh/config
 }
 

@@ -4,8 +4,8 @@ USER root
 
 RUN dnf -y install openssh-server
 
-ADD bin/kafka-entrypoint /bin/entrypoint
-ADD ssh/id_rsa.pub /home/appuser/.ssh/authorized_keys
+COPY bin/kafka-entrypoint /bin/entrypoint
+COPY ssh/id_rsa.pub /home/appuser/.ssh/authorized_keys
 
 RUN ssh-keygen -A && \
     chmod 777 /bin/entrypoint && \

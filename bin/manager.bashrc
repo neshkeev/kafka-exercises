@@ -162,3 +162,7 @@ function ksql(){
 function connect-mirror-maker() {
     ssh -o ConnectTimeout=10 appuser@"$KAFKA_HOST" -p 2222 "/usr/bin/connect-mirror-maker $@"
 }
+
+function docker() {
+    ssh -o ConnectTimeout=10 root@"$DIND_HOST" -p 2222 "cd /root/\$(cat /tmp/cwd); /usr/local/bin/docker $@"
+}

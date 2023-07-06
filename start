@@ -1,10 +1,12 @@
 #! /usr/bin/env bash
 
+export CURRENT_DIR_NAME=${PWD##*/}
+
 chmod -R +x ./bin
 chmod -R 777 ./src
 chmod 777 ./ssh
 
-docker compose stop &&
+MSYS_NO_PATHCONV=1 docker compose stop &&
   docker compose rm -f &&
   docker compose pull &&
   docker compose build &&

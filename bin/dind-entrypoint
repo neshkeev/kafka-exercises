@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+echo "${CURRENT_DIR_NAME}" > /tmp/cwd
+
+rc-status && rc-service sshd start && tail -f /dev/null
