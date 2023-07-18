@@ -1,4 +1,4 @@
-[![Gitpod](https://img.shields.io/badge/Open%20in%20Gitpod-908a85?logo=gitpod)](https://gitpod.io/#https://github.com/neshkeev/kafka-exercises)
+[![Gitpod](https://img.shields.io/badge/Open%20in%20Gitpod-908a85?logo=gitpod)](https://gitpod.io/#https://github.com/Ex3mal186/kafka-exercises)
 
 # Практические задания по Apache Kafka
 
