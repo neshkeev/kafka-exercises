@@ -1,8 +1,39 @@
 #!/usr/bin/env bash
 
-function setup_ssh() {
-    ( ssh-keyscan -p 2222 ${KAFKA_HOST} ; ssh-keyscan -p 2222 ${DIND_HOST} ) > ~/.ssh/known_hosts
+function get_host_ip() {
+    local host=${1}
+    [ -n "${host}" ] && \
+        getent hosts "${host}" | \
+        awk '{print $1}'
+}
+
+function configure_private_key() {
+    local private_key_location=${1:-~/.ssh/id_rsa}
+
+    echo -n "$SSH_PRIVATE_KEY" > "${private_key_location}"
+    chmod 600 "${private_key_location}"
+}
+
+function trust_ssh_host() {
+    local host=${1}
+    local host_ip=$(get_host_ip ${host})
+
+    [ -z ${host_ip} ] && {
+        echo "[WARN] No ${host}'s IP found" >&2
+    }
+
+    ( ssh-keyscan ${host} ; ssh-keyscan ${host_ip:-host} ) | sort -u > ~/.ssh/known_hosts
+}
+
+function configure_ssh_environment_variables() {
     printf 'Host *\n\tSetEnv LC_ALL=C' > ~/.ssh/config
+}
+
+function setup_ssh() {
+    mkdir -p ~/.ssh &&
+        configure_private_key &&
+        trust_ssh_host dind &&
+        configure_ssh_environment_variables
 }
 
 setup_ssh && /usr/local/bin/start-notebook.sh
